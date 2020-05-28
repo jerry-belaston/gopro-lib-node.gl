@@ -805,6 +805,10 @@ static void gl_flush(struct gctx *s)
     ngli_glFlush(gl);
 }
 
+static void gl_wait_idle(struct gctx *s)
+{
+}
+
 const struct gctx_class ngli_gctx_gl = {
     .name         = "OpenGL",
     .create       = gl_create,
