@@ -798,6 +798,13 @@ static int gl_get_preferred_depth_stencil_format(struct gctx *s)
     return NGLI_FORMAT_D24_UNORM_S8_UINT;
 }
 
+static void gl_flush(struct gctx *s)
+{
+    struct gctx_gl *gctx_gl = (struct gctx_gl *)s;
+    struct glcontext *gl = gctx_gl->glcontext;
+    ngli_glFlush(gl);
+}
+
 const struct gctx_class ngli_gctx_gl = {
     .name         = "OpenGL",
     .create       = gl_create,
@@ -828,6 +835,7 @@ const struct gctx_class ngli_gctx_gl = {
     .get_scissor              = gl_get_scissor,
     .get_preferred_depth_format = gl_get_preferred_depth_format,
     .get_preferred_depth_stencil_format = gl_get_preferred_depth_stencil_format,
+    .flush                    = gl_flush,
 
     .buffer_create = ngli_buffer_gl_create,
     .buffer_init   = ngli_buffer_gl_init,
@@ -901,6 +909,7 @@ const struct gctx_class ngli_gctx_gles = {
     .get_scissor              = gl_get_scissor,
     .get_preferred_depth_format = gl_get_preferred_depth_format,
     .get_preferred_depth_stencil_format = gl_get_preferred_depth_stencil_format,
+    .flush                    = gl_flush,
 
     .buffer_create = ngli_buffer_gl_create,
     .buffer_init   = ngli_buffer_gl_init,
