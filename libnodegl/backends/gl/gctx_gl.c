@@ -580,6 +580,16 @@ static int gl_set_capture_buffer(struct gctx *s, void *capture_buffer)
     return 0;
 }
 
+static int gl_begin_update(struct gctx *s, double t)
+{
+    return 0;
+}
+
+static int gl_end_update(struct gctx *s, double t)
+{
+    return 0;
+}
+
 static int gl_begin_draw(struct gctx *s, double t)
 {
     struct gctx_gl *s_priv = (struct gctx_gl *)s;
@@ -794,6 +804,8 @@ const struct gctx_class ngli_gctx_gl = {
     .init         = gl_init,
     .resize       = gl_resize,
     .set_capture_buffer = gl_set_capture_buffer,
+    .begin_update = gl_begin_update,
+    .end_update   = gl_end_update,
     .begin_draw   = gl_begin_draw,
     .end_draw     = gl_end_draw,
     .query_draw_time = gl_query_draw_time,
@@ -858,6 +870,8 @@ const struct gctx_class ngli_gctx_gles = {
     .init         = gl_init,
     .resize       = gl_resize,
     .set_capture_buffer = gl_set_capture_buffer,
+    .begin_update = gl_begin_update,
+    .end_update   = gl_end_update,
     .begin_draw   = gl_begin_draw,
     .end_draw     = gl_end_draw,
     .query_draw_time = gl_query_draw_time,
