@@ -94,6 +94,8 @@
     action(NGL_NODE_IOMAT4,                 ngli_iomat4_class)                  \
     action(NGL_NODE_IOBOOL,                 ngli_iobool_class)                  \
     action(NGL_NODE_MEDIA,                  ngli_media_class)                   \
+    action(NGL_NODE_MOTION2D,               ngli_motion2d_class)                \
+    action(NGL_NODE_MOTION3D,               ngli_motion3d_class)                \
     action(NGL_NODE_NOISEFLOAT,             ngli_noisefloat_class)              \
     action(NGL_NODE_NOISEVEC2,              ngli_noisevec2_class)               \
     action(NGL_NODE_NOISEVEC3,              ngli_noisevec3_class)               \

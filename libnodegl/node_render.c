@@ -54,6 +54,8 @@ struct render_priv {
                                           NGL_NODE_BUFFERVEC2,      \
                                           NGL_NODE_BUFFERVEC3,      \
                                           NGL_NODE_BUFFERVEC4,      \
+                                          NGL_NODE_MOTION2D,        \
+                                          NGL_NODE_MOTION3D,        \
                                           NGL_NODE_NOISEFLOAT,      \
                                           NGL_NODE_NOISEVEC2,       \
                                           NGL_NODE_NOISEVEC3,       \
