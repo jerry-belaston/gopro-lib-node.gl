@@ -19,18 +19,16 @@
 # under the License.
 #
 
-PREFIX          ?= venv
+PREFIX          = venv
+PREFIX_DONE     = .venv-done
+export TARGET_OS ?= $(shell uname -s)
 ifeq ($(TARGET_OS),Windows)
 PREFIX_FULLPATH = $(shell wslpath -wa .)\$(PREFIX)
 else
 PREFIX_FULLPATH = $(PWD)/$(PREFIX)
 endif
-
 PYTHON_MAJOR = 3
 
-#
-# User configuration
-#
 DEBUG      ?= no
 COVERAGE   ?= no
 ifeq ($(TARGET_OS),Windows)
@@ -38,25 +36,25 @@ PYTHON     ?= python.exe
 else
 PYTHON     ?= python$(if $(shell which python$(PYTHON_MAJOR) 2> /dev/null),$(PYTHON_MAJOR),)
 endif
-export TARGET_OS ?= $(shell uname -s)
 
+ifeq ($(TARGET_OS),Windows)
+PIP = $(PREFIX)/Scripts/pip.exe
+else
+PIP = $(PREFIX)/bin/pip
+endif
+TARGET_OS_LOWERCASE = $(shell $(PYTHON) -c "print('$(TARGET_OS)'.lower())" )
 DEBUG_GL    ?= no
 DEBUG_MEM   ?= no
 DEBUG_SCENE ?= no
 TESTS_SUITE ?=
 V           ?=
 
-$(info PYTHON: $(PYTHON))
-$(info PREFIX: $(PREFIX))
-$(info PREFIX_FULLPATH: $(PREFIX_FULLPATH))
-
 ifeq ($(TARGET_OS),Windows)
-# Initialize VCVARS64 and VCPKG_DIR to a default value
-# Note: the user should override this environment variable if needed
-VCVARS64 ?= "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvars64.bat"
 VCPKG_DIR ?= C:\\vcpkg
 PKG_CONF_DIR = external\\pkgconf\\build
-CMD = PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=1 PKG_CONFIG_ALLOW_SYSTEM_LIBS=1 PKG_CONFIG="$(PREFIX_FULLPATH)\\Scripts\\pkg-config.exe" PKG_CONFIG_PATH="$(VCPKG_DIR)\\installed\\x64-windows\\lib\\pkgconfig" WSLENV=PKG_CONFIG/w:PKG_CONFIG_PATH/w:PKG_CONFIG_ALLOW_SYSTEM_LIBS/w:PKG_CONFIG_ALLOW_SYSTEM_CFLAGS/w cmd.exe /C
+# General way to call cmd from bash: https://github.com/microsoft/WSL/issues/2835
+# Add the character @ after /C
+CMD = cmd.exe /C @
 else
 CMD =
 endif
@@ -66,37 +64,33 @@ $(error "Python $(PYTHON_MAJOR) not found")
 endif
 
 ifeq ($(TARGET_OS),Windows)
-ACTIVATE = $(CMD) $(VCVARS64) \&\& "$(PREFIX_FULLPATH)\\Scripts\\activate.bat"
+ACTIVATE = "$(PREFIX_FULLPATH)\\Scripts\\activate.bat"
 else
-ACTIVATE = . $(PREFIX_FULLPATH)/bin/activate
+ACTIVATE = $(PREFIX_FULLPATH)/bin/activate
 endif
 
-RPATH_LDFLAGS ?= -Wl,-rpath,$(PREFIX_FULLPATH)/lib
+RPATH_LDFLAGS = -Wl,-rpath,$(PREFIX_FULLPATH)/lib
 
 ifeq ($(TARGET_OS),Windows)
+MESON = meson.exe
 MESON_SETUP_PARAMS  = \
     --prefix="$(PREFIX_FULLPATH)" --bindir="$(PREFIX_FULLPATH)\\Scripts" --includedir="$(PREFIX_FULLPATH)\\Include" \
-    --libdir="$(PREFIX_FULLPATH)\\Lib" --pkg-config-path="$(VCPKG_DIR)\\installed\x64-windows\\lib\\pkgconfig;$(PREFIX_FULLPATH)\\Lib\\pkgconfig" -Drpath=true
-MESON_SETUP         = meson setup --backend vs $(MESON_SETUP_PARAMS)
-MESON_SETUP_NINJA   = meson setup --backend ninja $(MESON_SETUP_PARAMS)
+    --libdir="$(PREFIX_FULLPATH)\\Lib" --pkg-config-path="$(VCPKG_DIR)\\installed\x64-$(TARGET_OS_LOWERCASE)\\lib\\pkgconfig;$(PREFIX_FULLPATH)\\Lib\\pkgconfig"
 else
-MESON_SETUP         = meson setup --prefix=$(PREFIX_FULLPATH) --pkg-config-path=$(PREFIX_FULLPATH)/lib/pkgconfig -Drpath=true
+MESON = meson
+MESON_SETUP_PARAMS = --prefix=$(PREFIX_FULLPATH) --pkg-config-path=$(PREFIX_FULLPATH)/lib/pkgconfig -Drpath=true
 endif
-# MAKEFLAGS= is a workaround (not working on Windows due to incompatible Make
-# syntax) for the issue described here:
-# https://github.com/ninja-build/ninja/issues/1139#issuecomment-724061270
-ifeq ($(TARGET_OS),Windows)
-MESON_COMPILE = meson compile
-else
-MESON_COMPILE = MAKEFLAGS= meson compile
-endif
-MESON_INSTALL = meson install
+MESON_SETUP         = $(MESON) setup --backend $(MESON_BACKEND) $(MESON_SETUP_PARAMS)
+MESON_TEST          = $(MESON) test
+
+MESON_COMPILE = MAKEFLAGS= $(MESON) compile -j8
+MESON_INSTALL = $(MESON) install
 ifeq ($(COVERAGE),yes)
 MESON_SETUP += -Db_coverage=true
 DEBUG = yes
 endif
 ifeq ($(DEBUG),yes)
-MESON_SETUP += --buildtype=debugoptimized
+MESON_SETUP += --buildtype=debug
 else
 MESON_SETUP += --buildtype=release
 ifneq ($(TARGET_OS),MinGW-w64)
@@ -126,37 +120,96 @@ ifneq ($(TESTS_SUITE),)
 MESON_TESTS_SUITE_OPTS += --suite $(TESTS_SUITE)
 endif
 
+ifeq ($(TARGET_OS),Windows)
+CMAKE ?= cmake.exe
+else
+CMAKE ?= cmake
+endif
+
+ifeq ($(TARGET_OS),MinGW-w64)
+ENABLE_NGFX_BACKEND ?= 0
+else
+ENABLE_NGFX_BACKEND ?= 1
+endif
+
+ifeq ($(TARGET_OS),Windows)
+CMAKE_GENERATOR ?= "Visual Studio 16 2019"
+NGFX_GRAPHICS_BACKEND ?= "NGFX_GRAPHICS_BACKEND_DIRECT3D12"
+NGFX_WINDOW_BACKEND ?= "NGFX_WINDOW_BACKEND_WINDOWS"
+else ifeq ($(TARGET_OS),Linux)
+NGFX_GRAPHICS_BACKEND ?= "NGFX_GRAPHICS_BACKEND_VULKAN"
+NGFX_WINDOW_BACKEND ?= "NGFX_WINDOW_BACKEND_GLFW"
+CMAKE_GENERATOR ?= "CodeBlocks - Ninja"
+else ifeq ($(TARGET_OS),Darwin)
+NGFX_GRAPHICS_BACKEND ?= "NGFX_GRAPHICS_BACKEND_METAL"
+NGFX_WINDOW_BACKEND ?= "NGFX_WINDOW_BACKEND_APPKIT"
+CMAKE_GENERATOR ?= "Xcode"
+endif
+
+ifeq ($(DEBUG),yes)
+CMAKE_BUILD_TYPE = Debug
+CMAKE_BUILD_DIR = cmake-build-debug
+else
+CMAKE_BUILD_TYPE = Release
+CMAKE_BUILD_DIR = cmake-build-release
+endif
+
+CMAKE_SETUP_OPTIONS = -DCMAKE_BUILD_TYPE=$(CMAKE_BUILD_TYPE) -G $(CMAKE_GENERATOR)
+ifeq ($(TARGET_OS),Windows)
+# Set Windows SDK Version
+CMAKE_SYSTEM_VERSION ?= 10.0.18362.0
+CMAKE_SETUP_OPTIONS +=  -DCMAKE_SYSTEM_VERSION=$(CMAKE_SYSTEM_VERSION)
+endif
+
+CMAKE_SETUP = $(CMAKE) -H. -B$(CMAKE_BUILD_DIR) $(CMAKE_SETUP_OPTIONS)
+CMAKE_COMPILE = $(CMAKE) --build $(CMAKE_BUILD_DIR) --config $(CMAKE_BUILD_TYPE) -j8
+ifeq ($(V),1)
+CMAKE_COMPILE += -v
+endif
+CMAKE_INSTALL = $(CMAKE) --install $(CMAKE_BUILD_DIR) --config $(CMAKE_BUILD_TYPE)
+
+NODEGL_SETUP_OPTS =
+
+ifeq ($(TARGET_OS), Windows)
+EXTERNAL_DIR = $(shell wslpath -w external)
+WINDOWS_SDK_DIR ?= C:\\Program Files (x86)\\Windows Kits\\10
+VULKAN_SDK_DIR ?= $(shell wslpath -w /mnt/c/VulkanSDK/*)
+NODEGL_SETUP_OPTS += -Dvulkan_sdk_dir='$(VULKAN_SDK_DIR)'
+endif
+
+NODEGL_SETUP_OPTS += -Dngfx_graphics_backend=$(NGFX_GRAPHICS_BACKEND) -Dngfx_window_backend=$(NGFX_WINDOW_BACKEND)
+
+ifeq ($(TARGET_OS),Windows)
+MESON_BACKEND ?= vs
+else ifeq ($(TARGET_OS),Darwin)
+MESON_BACKEND ?= xcode
+else
+MESON_BACKEND ?= ninja
+endif
+
+MESON_BUILDDIR ?= builddir
+
 all: ngl-tools-install pynodegl-utils-install
 	@echo
 	@echo "    Install completed."
 	@echo
 	@echo "    You can now enter the venv with:"
-ifeq ($(TARGET_OS),Windows)
-	@echo "        (via Windows Command Prompt)"
-	@echo "            cmd.exe"
-	@echo "            $(PREFIX)\\\Scripts\\\activate.bat"
-	@echo "        (via Windows PowerShell)"
-	@echo "            powershell.exe"
-	@echo "            $(PREFIX)\\\Scripts\\\Activate.ps1"
-else
 	@echo "        $(ACTIVATE)"
-endif
 	@echo
 
 ngl-tools-install: nodegl-install
+	($(MESON_SETUP) --backend $(MESON_BACKEND) ngl-tools $(MESON_BUILDDIR)/ngl-tools)
 ifeq ($(TARGET_OS),Windows)
-	($(ACTIVATE) \&\& $(MESON_SETUP) ngl-tools builddir\\ngl-tools \&\& $(MESON_COMPILE) -C builddir\\ngl-tools \&\& $(MESON_INSTALL) -C builddir\\ngl-tools)
-	$(CMD) xcopy /Y builddir\\ngl-tools\\*.dll "$(PREFIX_FULLPATH)\\Scripts\\."
-else
-	($(ACTIVATE) && $(MESON_SETUP) ngl-tools builddir/ngl-tools && $(MESON_COMPILE) -C builddir/ngl-tools && $(MESON_INSTALL) -C builddir/ngl-tools)
+ifeq ($(DEBUG),yes)
+	# Set RuntimeLibrary to MultithreadedDLL using a script
+	# Note: Meson doesn't support
+	bash build_scripts/$(TARGET_OS_LOWERCASE)/patch_vcxproj_files.sh --set-runtime-library MultiThreadedDLL $(MESON_BUILDDIR)/ngl-tools
 endif
+endif
+	($(MESON_COMPILE) -C $(MESON_BUILDDIR)/ngl-tools && $(MESON_INSTALL) -C $(MESON_BUILDDIR)/ngl-tools)
 
 pynodegl-utils-install: pynodegl-utils-deps-install
-ifeq ($(TARGET_OS),Windows)
-	($(ACTIVATE) \&\& pip -v install -e pynodegl-utils)
-else
-	($(ACTIVATE) && pip -v install -e ./pynodegl-utils)
-endif
+	($(PIP) install -e ./pynodegl-utils)
 
 #
 # pynodegl-install is in dependency to prevent from trying to install pynodegl
@@ -179,54 +232,39 @@ endif
 # decorator and other related utils.
 #
 pynodegl-utils-deps-install: pynodegl-install
-ifeq ($(TARGET_OS),Windows)
-	($(ACTIVATE) \&\& pip install -r pynodegl-utils\\requirements.txt)
-else ifneq ($(TARGET_OS),MinGW-w64)
-	($(ACTIVATE) && pip install -r ./pynodegl-utils/requirements.txt)
-endif
+	($(PIP) install -r ./pynodegl-utils/requirements.txt)
 
 pynodegl-install: pynodegl-deps-install
-ifeq ($(TARGET_OS),Windows)
-	($(ACTIVATE) \&\& pip -v install -e .\\pynodegl)
-	$(CMD) xcopy /Y builddir\\sxplayer\\*.dll pynodegl\\.
-	$(CMD) xcopy /Y /C builddir\\libnodegl\\*.dll pynodegl\\.
-else
-	($(ACTIVATE) && PKG_CONFIG_PATH=$(PREFIX_FULLPATH)/lib/pkgconfig LDFLAGS=$(RPATH_LDFLAGS) pip -v install -e ./pynodegl)
-endif
+	($(PIP) -v install -e ./pynodegl)
 
-pynodegl-deps-install: $(PREFIX) nodegl-install
-ifeq ($(TARGET_OS),Windows)
-	($(ACTIVATE) \&\& pip install -r pynodegl\\requirements.txt)
-else
-	($(ACTIVATE) && pip install -r ./pynodegl/requirements.txt)
-endif
+pynodegl-deps-install: $(PREFIX_DONE) nodegl-install
+	($(PIP) install -r ./pynodegl/requirements.txt)
 
 nodegl-install: nodegl-setup
-ifeq ($(TARGET_OS),Windows)
-	($(ACTIVATE) \&\& $(MESON_COMPILE) -C builddir\\libnodegl \&\& $(MESON_INSTALL) -C builddir\\libnodegl)
-else
-	($(ACTIVATE) && $(MESON_COMPILE) -C builddir/libnodegl && $(MESON_INSTALL) -C builddir/libnodegl)
-endif
+	($(MESON_COMPILE) -C $(MESON_BUILDDIR)/libnodegl && $(MESON_INSTALL) -C $(MESON_BUILDDIR)/libnodegl)
 
+ifeq ($(ENABLE_NGFX_BACKEND), 1)
+nodegl-setup: sxplayer-install ngfx-install shader-tools-install
+else
 nodegl-setup: sxplayer-install
+endif
+	($(MESON_SETUP) --backend $(MESON_BACKEND) $(NODEGL_SETUP_OPTS) $(NODEGL_DEBUG_OPTS) --default-library shared libnodegl $(MESON_BUILDDIR)/libnodegl)
 ifeq ($(TARGET_OS),Windows)
-	($(ACTIVATE) \&\& $(MESON_SETUP) $(NODEGL_DEBUG_OPTS) libnodegl builddir\\libnodegl)
-else
-	($(ACTIVATE) && $(MESON_SETUP) $(NODEGL_DEBUG_OPTS) libnodegl builddir/libnodegl)
+ifeq ($(DEBUG),yes)
+	# Set RuntimeLibrary to MultithreadedDLL
+	bash build_scripts/$(TARGET_OS_LOWERCASE)/patch_vcxproj_files.sh --set-runtime-library MultiThreadedDLL $(MESON_BUILDDIR)/libnodegl
+endif
+	# Enable MultiProcessorCompilation
+	bash build_scripts/$(TARGET_OS_LOWERCASE)/patch_vcxproj_files.sh --set-multiprocessor-compilation true $(MESON_BUILDDIR)/libnodegl
 endif
 
-pkg-config-install: external-download $(PREFIX)
+pkg-config-install: external-download $(PREFIX_DONE)
 ifeq ($(TARGET_OS),Windows)
-	($(ACTIVATE) \&\& $(MESON_SETUP) -Dtests=false external\\pkgconf builddir\\pkgconf \&\& $(MESON_COMPILE) -C builddir\\pkgconf \&\& $(MESON_INSTALL) -C builddir\\pkgconf)
-	($(CMD) copy "$(PREFIX_FULLPATH)\\Scripts\\pkgconf.exe" "$(PREFIX_FULLPATH)\\Scripts\\pkg-config.exe")
+	($(MESON_SETUP) -Dtests=false external/pkgconf $(MESON_BUILDDIR)/pkgconf && $(MESON_COMPILE) -C builddir/pkgconf && $(MESON_INSTALL) -C $(MESON_BUILDDIR)/pkgconf)
 endif
 
-sxplayer-install: external-download pkg-config-install $(PREFIX)
-ifeq ($(TARGET_OS),Windows)
-	($(ACTIVATE) \&\& $(MESON_SETUP) external\\sxplayer builddir\\sxplayer \&\& $(MESON_COMPILE) -C builddir\\sxplayer \&\& $(MESON_INSTALL) -C builddir\\sxplayer)
-else
-	($(ACTIVATE) && $(MESON_SETUP) external/sxplayer builddir/sxplayer && $(MESON_COMPILE) -C builddir/sxplayer && $(MESON_INSTALL) -C builddir/sxplayer)
-endif
+sxplayer-install: external-download pkg-config-install $(PREFIX_DONE)
+	($(MESON_SETUP) external/sxplayer $(MESON_BUILDDIR)/sxplayer && $(MESON_COMPILE) -C $(MESON_BUILDDIR)/sxplayer && $(MESON_INSTALL) -C $(MESON_BUILDDIR)/sxplayer)
 
 external-download:
 	$(MAKE) -C external
@@ -240,16 +278,77 @@ else
 external-install: sxplayer-install
 endif
 
+shader-tools-install: $(PREFIX_DONE) ngfx-install
+	(cd shader-tools && $(CMAKE_SETUP) -D$(NGFX_GRAPHICS_BACKEND)=ON)
+ifeq ($(TARGET_OS), Windows)
+ifeq ($(DEBUG),yes)
+	# Set RuntimeLibrary to MultithreadedDLL
+	bash build_scripts/$(TARGET_OS_LOWERCASE)/patch_vcxproj_files.sh --set-runtime-library MultiThreadedDLL shader-tools/$(CMAKE_BUILD_DIR)
+endif
+	(cd shader-tools && $(CMAKE_COMPILE) && $(CMAKE_INSTALL) --prefix ../external/$(TARGET_OS_LOWERCASE)/shader_tools_x64-$(TARGET_OS_LOWERCASE))
+ifeq ($(NGFX_GRAPHICS_BACKEND), NGFX_GRAPHICS_BACKEND_DIRECT3D12)
+	-(shader-tools/$(CMAKE_BUILD_DIR)/$(CMAKE_BUILD_TYPE)/compile_shaders_dx12.exe d3dBlitOp)
+endif
+else ifeq ($(TARGET_OS), Linux)
+	(cd shader-tools && $(CMAKE_COMPILE) && $(CMAKE_INSTALL) --prefix ../external/$(TARGET_OS_LOWERCASE)/shader_tools_x64-$(TARGET_OS_LOWERCASE))
+	cp external/$(TARGET_OS_LOWERCASE)/shader_tools_x64-$(TARGET_OS_LOWERCASE)/lib/libshader_tools.so $(PREFIX)/lib
+else ifeq ($(TARGET_OS), Darwin)
+	(cd shader-tools && $(CMAKE_COMPILE) && $(CMAKE_INSTALL) --prefix ../external/$(TARGET_OS_LOWERCASE)/shader_tools_x64-$(TARGET_OS_LOWERCASE))
+	cp external/$(TARGET_OS_LOWERCASE)/shader_tools_x64-$(TARGET_OS_LOWERCASE)/lib/libshader_tools.dylib $(PREFIX)/lib
+endif
+
+
+ngfx-install: $(PREFIX_DONE)
+ifeq ($(TARGET_OS), Windows)
+	( cd ngfx && $(CMAKE_SETUP) -D$(NGFX_GRAPHICS_BACKEND)=ON )
+ifeq ($(DEBUG),yes)
+	# Set RuntimeLibrary to MultithreadedDLL
+	bash build_scripts/$(TARGET_OS_LOWERCASE)/patch_vcxproj_files.sh --set-runtime-library MultiThreadedDLL ngfx/$(CMAKE_BUILD_DIR)
+	# Enable MultiProcessorCompilation
+	bash build_scripts/$(TARGET_OS_LOWERCASE)/patch_vcxproj_files.sh --set-multiprocessor-compilation true ngfx/$(CMAKE_BUILD_DIR)
+endif
+	( cd ngfx && $(CMAKE_COMPILE) && $(CMAKE_INSTALL) --prefix ../external/$(TARGET_OS_LOWERCASE)/ngfx_x64-$(TARGET_OS_LOWERCASE) )
+	cp external/$(TARGET_OS_LOWERCASE)/ngfx_x64-$(TARGET_OS_LOWERCASE)/lib/ngfx.lib $(PREFIX)/Lib
+else ifeq ($(TARGET_OS), Linux)
+	( \
+	  cd ngfx && \
+	  $(CMAKE_SETUP) -D$(NGFX_GRAPHICS_BACKEND)=ON && \
+	  $(CMAKE_COMPILE) && \
+	  $(CMAKE_INSTALL) --prefix ../external/$(TARGET_OS_LOWERCASE)/ngfx_x64-$(TARGET_OS_LOWERCASE) \
+	)
+	cp external/$(TARGET_OS_LOWERCASE)/ngfx_x64-$(TARGET_OS_LOWERCASE)/lib/libngfx.so $(PREFIX)/lib
+else ifeq ($(TARGET_OS), Darwin)
+	( \
+	  cd ngfx && \
+	  $(CMAKE_SETUP) -D$(NGFX_GRAPHICS_BACKEND)=ON && \
+	  $(CMAKE_COMPILE) && \
+	  $(CMAKE_INSTALL) --prefix ../external/$(TARGET_OS_LOWERCASE)/ngfx_x64-$(TARGET_OS_LOWERCASE) \
+	)
+	cp external/$(TARGET_OS_LOWERCASE)/ngfx_x64-$(TARGET_OS_LOWERCASE)/lib/libngfx.dylib $(PREFIX)/lib
+endif
+
+ngl-debug-tools: $(PREFIX_DONE)
+	( cd ngl-debug-tools && $(CMAKE_SETUP) )
+ifeq ($(TARGET_OS), Windows)
+ifeq ($(DEBUG),yes)
+	# Set RuntimeLibrary to MultithreadedDLL
+	bash build_scripts/$(TARGET_OS_LOWERCASE)/patch_vcxproj_files.sh --set-runtime-library MultiThreadedDLL ngl-debug-tools/$(CMAKE_BUILD_DIR)
+endif
+	( cd ngl-debug-tools && $(CMAKE_COMPILE) )
+	(cp external/$(TARGET_OS_LOWERCASE)/RenderDoc_1.11_64/renderdoc.dll ngl-debug-tools/$(CMAKE_BUILD_DIR)/$(CMAKE_BUILD_TYPE))
+else
+	( cd ngl-debug-tools && $(CMAKE_COMPILE) )
+endif
+
 shaderc-install: SHADERC_LIB_FILENAME = libshaderc_shared.1.dylib
-shaderc-install: external-download $(PREFIX)
+shaderc-install: external-download $(PREFIX_DONE)
 	cd external/shaderc && ./utils/git-sync-deps
-	cmake -B builddir/shaderc -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$(PREFIX) external/shaderc
-	ninja -C builddir/shaderc install
+	$(CMAKE_SETUP) && $(CMAKE_COMPILE) && $(CMAKE_INSTALL) --prefix $(PREFIX)
 	install_name_tool -id @rpath/$(SHADERC_LIB_FILENAME) $(PREFIX)/lib/$(SHADERC_LIB_FILENAME)
 
 # Note: somehow xcodebuild sets name @rpath/libMoltenVK.dylib automatically
 # (according to otool -l) so we don't have to do anything special
-MoltenVK-install: external-download $(PREFIX)
+MoltenVK-install: external-download $(PREFIX_DONE)
 	cd external/MoltenVK && ./fetchDependencies -v --macos
 	$(MAKE) -C external/MoltenVK macos
 	install -d $(PREFIX)/include
@@ -257,48 +356,38 @@ MoltenVK-install: external-download $(PREFIX)
 	cp -v external/MoltenVK/Package/Latest/MoltenVK/dylib/macOS/libMoltenVK.dylib $(PREFIX)/lib
 	cp -vr external/MoltenVK/Package/Latest/MoltenVK/include $(PREFIX)
 
-#
-# We do not pull meson from pip on MinGW for the same reasons we don't pull
-# Pillow and PySide2. We require the users to have it on their system.
-#
-$(PREFIX):
+$(PREFIX_DONE):
+	(cd external && bash scripts/sync.sh $(TARGET_OS))
 ifeq ($(TARGET_OS),Windows)
-	($(CMD) $(PYTHON) -m venv "$@")
-	($(ACTIVATE) \&\& pip install meson ninja)
+	($(PYTHON) -m venv $(PREFIX))
+	(mkdir $(PREFIX)/Lib/pkgconfig)
+	(cp external/$(TARGET_OS_LOWERCASE)/RenderDoc_1.11_64/renderdoc.dll $(PREFIX)/Scripts/.)
 else ifeq ($(TARGET_OS),MinGW-w64)
-	$(PYTHON) -m venv --system-site-packages $@
+	$(PYTHON) -m venv --system-site-packages  $(PREFIX)
 else
-	$(PYTHON) -m venv $@
-	($(ACTIVATE) && pip install meson ninja)
+	$(PYTHON) -m venv $(PREFIX)
 endif
+	touch $(PREFIX_DONE)
+
+$(PREFIX): $(PREFIX_DONE)
 
 tests: nodegl-tests tests-setup
-ifeq ($(TARGET_OS),Windows)
-	($(ACTIVATE) \&\& meson test $(MESON_TESTS_SUITE_OPTS) -C builddir\\tests)
-else
-	($(ACTIVATE) && meson test $(MESON_TESTS_SUITE_OPTS) -C builddir/tests)
-endif
+	($(MESON) test $(MESON_TESTS_SUITE_OPTS) -C $(MESON_BUILDDIR)/tests)
 
 tests-setup: ngl-tools-install pynodegl-utils-install
-ifeq ($(TARGET_OS),Windows)
-	($(ACTIVATE) \&\& $(MESON_SETUP_NINJA) builddir\\tests tests)
-else
-	($(ACTIVATE) && $(MESON_SETUP) builddir/tests tests)
-endif
+	$(MESON_SETUP) --backend ninja $(MESON_BUILDDIR)/tests tests
 
 nodegl-tests: nodegl-install
-ifeq ($(TARGET_OS),Windows)
-	($(ACTIVATE) \&\& meson test -C builddir\\libnodegl)
-else
-	($(ACTIVATE) && meson test -C builddir/libnodegl)
-endif
+	$(MESON_TEST) -C $(MESON_BUILDDIR)/libnodegl
+
+compile-%:
+	$(MESON_COMPILE) -C $(MESON_BUILDDIR)/$(subst compile-,,$@)
+
+install-%: compile-%
+	$(MESON_INSTALL) -C $(MESON_BUILDDIR)/$(subst install-,,$@)
 
 nodegl-%: nodegl-setup
-ifeq ($(TARGET_OS),Windows)
-	($(ACTIVATE) \&\& $(MESON_COMPILE) -C builddir\\libnodegl $(subst nodegl-,,$@))
-else
-	($(ACTIVATE) && $(MESON_COMPILE) -C builddir/libnodegl $(subst nodegl-,,$@))
-endif
+	$(MESON_COMPILE) -C $(MESON_BUILDDIR)/libnodegl $(subst nodegl-,,$@)
 
 clean_py:
 	$(RM) pynodegl/nodes_def.pyx
@@ -311,19 +400,19 @@ clean_py:
 	$(RM) -r pynodegl-utils/.eggs
 
 clean: clean_py
-	$(RM) -r builddir/sxplayer
-	$(RM) -r builddir/libnodegl
-	$(RM) -r builddir/ngl-tools
-	$(RM) -r builddir/tests
+	$(RM) -r $(MESON_BUILDDIR)/sxplayer
+	$(RM) -r $(MESON_BUILDDIR)/libnodegl
+	$(RM) -r $(MESON_BUILDDIR)/ngl-tools
+	$(RM) -r $(MESON_BUILDDIR)/tests
 
 # You need to build and run with COVERAGE set to generate data.
 # For example: `make clean && make -j8 tests COVERAGE=yes`
 # We don't use `meson coverage` here because of
 # https://github.com/mesonbuild/meson/issues/7895
 coverage-html:
-	($(ACTIVATE) && ninja -C builddir/libnodegl coverage-html)
+	(ninja -C $(MESON_BUILDDIR)/libnodegl coverage-html)
 coverage-xml:
-	($(ACTIVATE) && ninja -C builddir/libnodegl coverage-xml)
+	(ninja -C $(MESON_BUILDDIR)/libnodegl coverage-xml)
 
 .PHONY: all
 .PHONY: ngl-tools-install
@@ -337,3 +426,5 @@ coverage-xml:
 .PHONY: clean clean_py
 .PHONY: coverage-html coverage-xml
 .PHONY: external-download external-install
+.PHONY: ngfx-install
+.PHONY: ngl-debug-tools
