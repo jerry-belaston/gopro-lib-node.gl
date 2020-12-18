@@ -21,6 +21,9 @@
 
 #ifndef PIPELINE_H
 #define PIPELINE_H
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include "buffer.h"
 #include "darray.h"
@@ -130,5 +133,8 @@ void ngli_pipeline_draw_indexed(struct pipeline *s, struct buffer *indices, int 
 void ngli_pipeline_dispatch(struct pipeline *s, int nb_group_x, int nb_group_y, int nb_group_z);
 
 void ngli_pipeline_freep(struct pipeline **sp);
+#ifdef __cplusplus
+}
+#endif
 
 #endif

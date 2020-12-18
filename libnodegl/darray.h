@@ -22,6 +22,10 @@
 #ifndef DARRAY_H
 #define DARRAY_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 
 struct darray {
@@ -54,5 +58,8 @@ static inline void ngli_darray_clear(struct darray *darray)
 {
     darray->count = 0;
 }
+#ifdef __cplusplus
+}
+#endif
 
 #endif

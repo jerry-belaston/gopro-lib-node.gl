@@ -21,6 +21,9 @@
 
 #ifndef RENDERTARGET_H
 #define RENDERTARGET_H
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include "darray.h"
 #include "texture.h"
@@ -79,5 +82,8 @@ struct rendertarget *ngli_rendertarget_create(struct gctx *gctx);
 int ngli_rendertarget_init(struct rendertarget *s, const struct rendertarget_params *params);
 void ngli_rendertarget_read_pixels(struct rendertarget *s, uint8_t *data);
 void ngli_rendertarget_freep(struct rendertarget **sp);
+#ifdef __cplusplus
+}
+#endif
 
 #endif
