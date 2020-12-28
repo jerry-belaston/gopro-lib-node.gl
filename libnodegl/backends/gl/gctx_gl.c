@@ -39,6 +39,10 @@
 #include "program_gl.h"
 #include "rendertarget_gl.h"
 #include "texture_gl.h"
+#ifdef ENABLE_CAPTURE
+#include "tools/capture/capture.h"
+static int DEBUG_CAPTURE;
+#endif
 
 static void capture_cpu(struct gctx *s)
 {
@@ -385,7 +389,10 @@ static int gl_init(struct gctx *s)
     int ret;
     const struct ngl_config *config = &s->config;
     struct gctx_gl *s_priv = (struct gctx_gl *)s;
-
+#ifdef ENABLE_CAPTURE
+    DEBUG_CAPTURE = (getenv("DEBUG_CAPTURE") != NULL);
+    if (DEBUG_CAPTURE) init_capture();
+#endif
     s_priv->glcontext = ngli_glcontext_new(config);
     if (!s_priv->glcontext)
         return NGL_ERROR_MEMORY;
@@ -398,6 +405,10 @@ static int gl_init(struct gctx *s)
         ngli_glEnable(gl, GL_DEBUG_OUTPUT_SYNCHRONOUS);
         ngli_glDebugMessageCallback(gl, gl_debug_message_callback, NULL);
     }
+#endif
+
+#ifdef ENABLE_CAPTURE
+    if (DEBUG_CAPTURE) begin_capture();
 #endif
 
     ret = gl->offscreen ? offscreen_rendertarget_init(s) : onscreen_rendertarget_init(s);
@@ -676,6 +687,9 @@ static void gl_destroy(struct gctx *s)
     struct gctx_gl *s_priv = (struct gctx_gl *)s;
     timer_reset(s);
     rendertarget_reset(s);
+#ifdef ENABLE_CAPTURE
+    if (DEBUG_CAPTURE) end_capture();
+#endif
     ngli_glcontext_freep(&s_priv->glcontext);
 }
 
