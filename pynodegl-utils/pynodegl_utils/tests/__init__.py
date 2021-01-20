@@ -141,7 +141,8 @@ def run():
     test_func = _refgen_map[refgen_opt]
     err = test_func(func_name, tester, ref_filepath, dump)
     if err:
+        print(f'{func_name} failed')
         sys.stderr.write('\n'.join(err) + '\n')
         sys.exit(1)
-
+    print(f'{func_name} passed')
     sys.exit(0)
