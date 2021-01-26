@@ -38,6 +38,7 @@ int wsi_set_ngl_config(struct ngl_config *config, SDL_Window *window)
     if (info.subsystem == SDL_SYSWM_COCOA) {
         NSWindow *nswindow = info.info.cocoa.window;
         NSView *view = [nswindow contentView];
+        view.wantsLayer = YES;
         config->platform = NGL_PLATFORM_MACOS;
         config->window = (uintptr_t)view;
         return 0;
