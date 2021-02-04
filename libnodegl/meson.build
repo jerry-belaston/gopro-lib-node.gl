@@ -358,6 +358,7 @@ gbackends_cfg = {
       'backends/vk/pipeline_vk.c',
       'backends/vk/program_vk.c',
       'backends/vk/texture_vk.c',
+
       'backends/vk/rendertarget_vk.c',
       'backends/vk/vkcontext.c',
       'backends/vk/vkutils.c',
@@ -673,7 +674,7 @@ run_target(
 # Doc
 #
 
-if not get_option('small')
+if not get_option('small') and meson.backend() != 'xcode'
   gen_doc = executable(
     'gen_doc',
     lib_src + files('gen_doc.c'),
