@@ -111,9 +111,10 @@ static void resourceBarrier(D3DCommandList* cmdList, D3DFramebuffer::D3DAttachme
         D3D12_RESOURCE_STATES currentState, D3D12_RESOURCE_STATES newState, UINT subresourceIndex = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES) {
     if (p->texture) p->texture->resourceBarrier(cmdList, newState, subresourceIndex);
     else {
-        D3D_TRACE(cmdList->v->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+        CD3DX12_RESOURCE_BARRIER resourceBarrier = CD3DX12_RESOURCE_BARRIER::Transition(
             p->resource, currentState, newState,
-            p->subresourceIndex)));
+            p->subresourceIndex);
+        D3D_TRACE(cmdList->v->ResourceBarrier(1, &resourceBarrier));
     }
 }
 void D3DGraphics::beginRenderPass(CommandBuffer* commandBuffer, RenderPass* renderPass, Framebuffer* framebuffer,
