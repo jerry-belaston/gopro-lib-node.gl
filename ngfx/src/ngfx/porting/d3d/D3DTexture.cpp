@@ -58,8 +58,9 @@ void D3DTexture::create(D3DGraphicsContext* ctx, D3DGraphics* graphics, void* da
     }
     bool isRenderTarget = (resourceFlags & D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET);
     D3D12_CLEAR_VALUE clearValue = { format, { 0.0f, 0.0f, 0.0f, 0.0f } };
+    CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_DEFAULT);
     V(d3dDevice->CreateCommittedResource(
-        &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+        &heapProperties,
         D3D12_HEAP_FLAG_NONE,
         &resourceDesc,
         D3D12_RESOURCE_STATE_COPY_DEST,
@@ -312,7 +313,8 @@ void D3DTexture::download(void* data, uint32_t size, uint32_t x, uint32_t y, uin
     D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint;
     uint32_t numRows;
     uint64_t srcSize, rowSizeBytes;
-    D3D_TRACE(ctx->d3dDevice.v->GetCopyableFootprints(&v->GetDesc(), 0, 1, 0, &footprint, &numRows, &rowSizeBytes, &srcSize));
+    D3D12_RESOURCE_DESC desc = v->GetDesc();
+    D3D_TRACE(ctx->d3dDevice.v->GetCopyableFootprints(&desc, 0, 1, 0, &footprint, &numRows, &rowSizeBytes, &srcSize));
 
     D3DReadbackBuffer readbackBuffer;
     readbackBuffer.create(ctx, uint32_t(srcSize));
@@ -368,9 +370,10 @@ void D3DTexture::resourceBarrier(D3DCommandList* cmdList, D3D12_RESOURCE_STATES 
     else { j0 = subresource; j1 = j0 + 1; }
     for (uint32_t j = j0; j < j1; j++) {
         if (currentResourceState[j] == newState) continue;
-        D3D_TRACE(cmdList->v->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+        CD3DX12_RESOURCE_BARRIER resourceBarrier = CD3DX12_RESOURCE_BARRIER::Transition(
             v.Get(), currentResourceState[j], newState, j
-        )));
+        );
+        D3D_TRACE(cmdList->v->ResourceBarrier(1, &resourceBarrier));
         currentResourceState[j] = newState;
     }
 }
