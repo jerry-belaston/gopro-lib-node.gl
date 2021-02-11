@@ -497,6 +497,33 @@ static VkResult create_offscreen_resources(struct gctx *s)
     return VK_SUCCESS;
 }
 
+static int get_samples(VkSampleCountFlags flags)
+{
+    if (flags & VK_SAMPLE_COUNT_64_BIT)
+        return 64;
+    if (flags & VK_SAMPLE_COUNT_32_BIT)
+        return 32;
+    if (flags & VK_SAMPLE_COUNT_16_BIT)
+        return 16;
+    if (flags & VK_SAMPLE_COUNT_8_BIT)
+        return 8;
+    if (flags & VK_SAMPLE_COUNT_4_BIT)
+        return 4;
+    if (flags & VK_SAMPLE_COUNT_2_BIT)
+        return 2;
+    if (flags & VK_SAMPLE_COUNT_1_BIT)
+        return 1;
+    return 0;
+}
+
+static int get_max_supported_samples(const VkPhysicalDeviceLimits *limits)
+{
+    const int max_color_samples = get_samples(limits->framebufferColorSampleCounts);
+    const int max_depth_samples = get_samples(limits->framebufferDepthSampleCounts);
+    const int max_stencil_samples = get_samples(limits->framebufferStencilSampleCounts);
+    return NGLI_MIN(max_color_samples, NGLI_MIN(max_depth_samples, max_stencil_samples));
+}
+
 static int vk_init(struct gctx *s)
 {
     const struct ngl_config *config = &s->config;
@@ -524,9 +551,9 @@ static int vk_init(struct gctx *s)
         ngli_vkcontext_freep(&s_priv->vkcontext);
         return ret;
     }
-    struct vkcontext *vk = s_priv->vkcontext;
 
-    VkPhysicalDeviceLimits *limits = &vk->phy_device_props.limits;
+    struct vkcontext *vk = s_priv->vkcontext;
+    const VkPhysicalDeviceLimits *limits = &vk->phy_device_props.limits;
 
     s->limits.max_color_attachments              = limits->maxColorAttachments;
     s->limits.max_compute_work_group_count[0]    = limits->maxComputeWorkGroupCount[0];
@@ -537,7 +564,7 @@ static int vk_init(struct gctx *s)
     s->limits.max_compute_work_group_size[1]     = limits->maxComputeWorkGroupSize[1];
     s->limits.max_compute_work_group_size[2]     = limits->maxComputeWorkGroupSize[2];
     s->limits.max_draw_buffers                   = limits->maxColorAttachments;
-    s->limits.max_samples                        = 4; // FIXME
+    s->limits.max_samples                        = get_max_supported_samples(limits);
     s->limits.max_texture_image_units            = 0; // FIXME
     s->limits.max_uniform_block_size             = limits->maxUniformBufferRange;
 
