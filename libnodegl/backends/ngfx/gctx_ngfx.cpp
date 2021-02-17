@@ -197,9 +197,9 @@ static int ngfx_init(struct gctx *s)
         ctx->default_rendertarget_desc.depth_stencil.format = to_ngli_format(graphics_context->depthFormat);
     }
 
-    s->limits.max_compute_work_group_counts[0] = INT_MAX;
-    s->limits.max_compute_work_group_counts[1] = INT_MAX;
-    s->limits.max_compute_work_group_counts[2] = INT_MAX;
+    s->limits.max_compute_work_group_count[0] = INT_MAX;
+    s->limits.max_compute_work_group_count[1] = INT_MAX;
+    s->limits.max_compute_work_group_count[2] = INT_MAX;
     return 0;
 }
 
