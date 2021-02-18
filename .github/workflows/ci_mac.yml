@@ -17,17 +17,17 @@ jobs:
     - name: Set Environment
       run: echo "TMPDIR=${TMPDIR}" >> $GITHUB_ENV
 
-    - name: Cache ShaderC
-      id: cache-shaderc
+    - name: Restore ShaderC from Cache
+      id: restore_shaderc_cache
       uses: actions/cache@v2
       with:
-        path: ${{env.TMPDIR}}/shaderc
+        path: shaderc
         key: ${{ runner.os }}-shaderc
 
     - name: Build ShaderC
-      if: steps.cache-shaderc.outputs.cache-hit != 'true'
+      if: steps.restore_shaderc_cache.outputs.cache-hit != 'true'
       run: |
-        cd $TMPDIR && git clone https://github.com/google/shaderc && \
+        git clone https://github.com/google/shaderc && \
         cd shaderc && \
         ./utils/git-sync-deps && \
         cmake -H. -Bcmake-build-release -DCMAKE_BUILD_TYPE=Release && \
