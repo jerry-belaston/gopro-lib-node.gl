@@ -31,11 +31,11 @@ jobs:
         cd shaderc && \
         ./utils/git-sync-deps && \
         cmake -H. -Bcmake-build-release -DCMAKE_BUILD_TYPE=Release && \
-        cmake --build cmake-build-release -j8 && \
-        sudo cmake --install cmake-build-release
+        cmake --build cmake-build-release -j8
 
     - name: Install dependencies
       run: |
+        (cd shaderc && sudo cmake --install cmake-build-release)
         brew install python3 curl pkg-config sdl2 ffmpeg ninja glm spirv-cross
         # https://docs.brew.sh/Homebrew-and-Python
         pip3 install --upgrade pip
