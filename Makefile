@@ -127,9 +127,9 @@ CMAKE ?= cmake
 endif
 
 ifeq ($(TARGET_OS),MinGW-w64)
-ENABLE_NGFX_BACKEND ?= 0
+export ENABLE_NGFX_BACKEND ?= 0
 else
-ENABLE_NGFX_BACKEND ?= 1
+export ENABLE_NGFX_BACKEND ?= 1
 endif
 
 ifeq ($(TARGET_OS),Windows)
@@ -171,9 +171,8 @@ CMAKE_INSTALL = $(CMAKE) --install $(CMAKE_BUILD_DIR) --config $(CMAKE_BUILD_TYP
 NODEGL_SETUP_OPTS =
 
 ifeq ($(TARGET_OS), Windows)
-EXTERNAL_DIR = $(shell wslpath -w external)
-WINDOWS_SDK_DIR ?= C:\\Program Files (x86)\\Windows Kits\\10
-VULKAN_SDK_DIR ?= $(shell wslpath -w /mnt/c/VulkanSDK/*)
+EXTERNAL_DIR = $(shell wslpath -wa external)
+VULKAN_SDK_DIR ?= $(shell wslpath -wa /mnt/c/VulkanSDK/*)
 NODEGL_SETUP_OPTS += -Dvulkan_sdk_dir='$(VULKAN_SDK_DIR)'
 endif
 
@@ -245,7 +244,7 @@ nodegl-install: nodegl-setup
 
 NODEGL_DEPS=sxplayer-install
 ifeq ($(ENABLE_NGFX_BACKEND), 1)
-NODEGL_DEPS+=ngfx-install shader-tools-install
+NODEGL_DEPS+=ngfx-install
 endif
 nodegl-setup: $(NODEGL_DEPS)
 
@@ -279,51 +278,32 @@ else
 external-install: sxplayer-install
 endif
 
-shader-tools-install: $(PREFIX_DONE) ngfx-install
-	(cd shader-tools && $(CMAKE_SETUP) -D$(NGFX_GRAPHICS_BACKEND)=ON)
+ngfx-install: external-download $(PREFIX_DONE)
+	bash external/ngfx/build_scripts/sync_deps.sh $(TARGET_OS) external
 ifeq ($(TARGET_OS), Windows)
+	( cd external/ngfx && $(CMAKE_SETUP) -DEXTERNAL_DIR='$(EXTERNAL_DIR)' -D$(NGFX_GRAPHICS_BACKEND)=ON -DVCPKG_DIR='$(VCPKG_DIR)')
 ifeq ($(DEBUG),yes)
 	# Set RuntimeLibrary to MultithreadedDLL
-	bash build_scripts/$(TARGET_OS_LOWERCASE)/patch_vcxproj_files.sh --set-runtime-library MultiThreadedDLL shader-tools/$(CMAKE_BUILD_DIR)
-endif
-	(cd shader-tools && $(CMAKE_COMPILE) && $(CMAKE_INSTALL) --prefix ../external/$(TARGET_OS_LOWERCASE)/shader_tools_x64-$(TARGET_OS_LOWERCASE))
-ifeq ($(NGFX_GRAPHICS_BACKEND), NGFX_GRAPHICS_BACKEND_DIRECT3D12)
-	-(shader-tools/$(CMAKE_BUILD_DIR)/$(CMAKE_BUILD_TYPE)/compile_shaders_dx12.exe d3dBlitOp)
-endif
-else ifeq ($(TARGET_OS), Linux)
-	(cd shader-tools && $(CMAKE_COMPILE) && $(CMAKE_INSTALL) --prefix ../external/$(TARGET_OS_LOWERCASE)/shader_tools_x64-$(TARGET_OS_LOWERCASE))
-	cp external/$(TARGET_OS_LOWERCASE)/shader_tools_x64-$(TARGET_OS_LOWERCASE)/lib/libshader_tools.so $(PREFIX)/lib
-else ifeq ($(TARGET_OS), Darwin)
-	(cd shader-tools && $(CMAKE_COMPILE) && $(CMAKE_INSTALL) --prefix ../external/$(TARGET_OS_LOWERCASE)/shader_tools_x64-$(TARGET_OS_LOWERCASE))
-	cp external/$(TARGET_OS_LOWERCASE)/shader_tools_x64-$(TARGET_OS_LOWERCASE)/lib/libshader_tools.dylib $(PREFIX)/lib
-endif
-
-
-ngfx-install: $(PREFIX_DONE)
-ifeq ($(TARGET_OS), Windows)
-	( cd ngfx && $(CMAKE_SETUP) -D$(NGFX_GRAPHICS_BACKEND)=ON )
-ifeq ($(DEBUG),yes)
-	# Set RuntimeLibrary to MultithreadedDLL
-	bash build_scripts/$(TARGET_OS_LOWERCASE)/patch_vcxproj_files.sh --set-runtime-library MultiThreadedDLL ngfx/$(CMAKE_BUILD_DIR)
+	bash build_scripts/$(TARGET_OS_LOWERCASE)/patch_vcxproj_files.sh --set-runtime-library MultiThreadedDLL external/ngfx/$(CMAKE_BUILD_DIR)
 	# Enable MultiProcessorCompilation
-	bash build_scripts/$(TARGET_OS_LOWERCASE)/patch_vcxproj_files.sh --set-multiprocessor-compilation true ngfx/$(CMAKE_BUILD_DIR)
+	bash build_scripts/$(TARGET_OS_LOWERCASE)/patch_vcxproj_files.sh --set-multiprocessor-compilation true external/ngfx/$(CMAKE_BUILD_DIR)
 endif
-	( cd ngfx && $(CMAKE_COMPILE) && $(CMAKE_INSTALL) --prefix ../external/$(TARGET_OS_LOWERCASE)/ngfx_x64-$(TARGET_OS_LOWERCASE) )
+	( cd external/ngfx && $(CMAKE_COMPILE) && $(CMAKE_INSTALL) --prefix ../$(TARGET_OS_LOWERCASE)/ngfx_x64-$(TARGET_OS_LOWERCASE) )
 	cp external/$(TARGET_OS_LOWERCASE)/ngfx_x64-$(TARGET_OS_LOWERCASE)/lib/ngfx.lib $(PREFIX)/Lib
 else ifeq ($(TARGET_OS), Linux)
 	( \
-	  cd ngfx && \
-	  $(CMAKE_SETUP) -D$(NGFX_GRAPHICS_BACKEND)=ON && \
+	  cd external/ngfx && \
+	  $(CMAKE_SETUP) -DEXTERNAL_DIR=$(PWD)/external -D$(NGFX_GRAPHICS_BACKEND)=ON && \
 	  $(CMAKE_COMPILE) && \
-	  $(CMAKE_INSTALL) --prefix ../external/$(TARGET_OS_LOWERCASE)/ngfx_x64-$(TARGET_OS_LOWERCASE) \
+	  $(CMAKE_INSTALL) --prefix ../$(TARGET_OS_LOWERCASE)/ngfx_x64-$(TARGET_OS_LOWERCASE) \
 	)
 	cp external/$(TARGET_OS_LOWERCASE)/ngfx_x64-$(TARGET_OS_LOWERCASE)/lib/libngfx.so $(PREFIX)/lib
 else ifeq ($(TARGET_OS), Darwin)
 	( \
-	  cd ngfx && \
-	  $(CMAKE_SETUP) -D$(NGFX_GRAPHICS_BACKEND)=ON && \
+	  cd external/ngfx && \
+	  $(CMAKE_SETUP) -DEXTERNAL_DIR=$(PWD)/external -D$(NGFX_GRAPHICS_BACKEND)=ON && \
 	  $(CMAKE_COMPILE) && \
-	  $(CMAKE_INSTALL) --prefix ../external/$(TARGET_OS_LOWERCASE)/ngfx_x64-$(TARGET_OS_LOWERCASE) \
+	  $(CMAKE_INSTALL) --prefix ../$(TARGET_OS_LOWERCASE)/ngfx_x64-$(TARGET_OS_LOWERCASE) \
 	)
 	cp external/$(TARGET_OS_LOWERCASE)/ngfx_x64-$(TARGET_OS_LOWERCASE)/lib/libngfx.dylib $(PREFIX)/lib
 endif
@@ -336,7 +316,6 @@ ifeq ($(DEBUG),yes)
 	bash build_scripts/$(TARGET_OS_LOWERCASE)/patch_vcxproj_files.sh --set-runtime-library MultiThreadedDLL ngl-debug-tools/$(CMAKE_BUILD_DIR)
 endif
 	( cd ngl-debug-tools && $(CMAKE_COMPILE) )
-	(cp external/$(TARGET_OS_LOWERCASE)/RenderDoc_1.11_64/renderdoc.dll ngl-debug-tools/$(CMAKE_BUILD_DIR)/$(CMAKE_BUILD_TYPE))
 else
 	( cd ngl-debug-tools && $(CMAKE_COMPILE) )
 endif
@@ -358,11 +337,9 @@ MoltenVK-install: external-download $(PREFIX_DONE)
 	cp -vr external/MoltenVK/Package/Latest/MoltenVK/include $(PREFIX)
 
 $(PREFIX_DONE):
-	(cd external && bash scripts/sync.sh $(TARGET_OS))
 ifeq ($(TARGET_OS),Windows)
 	($(PYTHON) -m venv $(PREFIX))
 	(mkdir $(PREFIX)/Lib/pkgconfig)
-	(cp external/$(TARGET_OS_LOWERCASE)/RenderDoc_1.11_64/renderdoc.dll $(PREFIX)/Scripts/.)
 else ifeq ($(TARGET_OS),MinGW-w64)
 	$(PYTHON) -m venv --system-site-packages  $(PREFIX)
 else

@@ -456,11 +456,6 @@ static void ngfx_invalidate_depth_stencil(struct gctx *s)
 
 }
 
-static void ngfx_flush(struct gctx *s)
-{ TODO();
-
-}
-
 static int ngfx_get_preferred_depth_format(struct gctx *s)
 {
     gctx_ngfx *ctx = (gctx_ngfx *)s;
@@ -502,8 +497,6 @@ extern "C" const struct gctx_class ngli_gctx_ngfx = {
 
     .get_preferred_depth_format         = ngfx_get_preferred_depth_format,
     .get_preferred_depth_stencil_format = ngfx_get_preferred_depth_stencil_format,
-
-    .flush                    = ngfx_flush,
 
     .buffer_create = ngli_buffer_ngfx_create,
     .buffer_init   = ngli_buffer_ngfx_init,

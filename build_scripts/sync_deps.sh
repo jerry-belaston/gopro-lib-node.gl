@@ -1,8 +1,11 @@
 #!/bin/bash
 set -xu
 OS=$1
+EXTERNAL_DIR=$(dirname $0)/../external
+mkdir -p $EXTERNAL_DIR
+cd $EXTERNAL_DIR
 echo "OS: [$OS]"
-TMP_DIR=/tmp/gopro-pkg/external
+TMP_DIR=/tmp/ngfx/external
 
 wget -nc -q https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/json.hpp -P $TMP_DIR/json
 mkdir -p json/include && cp -rf $TMP_DIR/json/* json/include/.
@@ -20,8 +23,9 @@ if [ $OS == "Windows" ]; then
     mkdir -p windows/d3dx12 && cp $TMP_DIR/d3dx12/d3dx12.h windows/d3dx12/.
 
     wget -nc -q https://renderdoc.org/stable/1.11/RenderDoc_1.11_64.zip -P $TMP_DIR/renderdoc
-    (cd windows && unzip $TMP_DIR/renderdoc/RenderDoc_1.11_64.zip)
+    (cd windows && unzip -q $TMP_DIR/renderdoc/RenderDoc_1.11_64.zip)
 
     wget -nc -q https://github.com/glfw/glfw/releases/download/3.3.2/glfw-3.3.2.bin.WIN64.zip -P $TMP_DIR
     (cd windows && unzip -q $TMP_DIR/glfw-3.3.2.bin.WIN64.zip)
+
 fi

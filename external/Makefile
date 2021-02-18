@@ -32,6 +32,9 @@ DEPENDENCIES = sxplayer
 ifeq ($(TARGET_OS),Windows)
 DEPENDENCIES += pkgconf
 endif
+ifeq ($(ENABLE_NGFX_BACKEND),1)
+DEPENDENCIES += ngfx
+endif
 
 all: $(DEPENDENCIES)
 
@@ -80,5 +83,8 @@ pkgconf-$(PKGCONF_COMMIT_ID): | pkgconf-$(PKGCONF_COMMIT_ID).zip
 
 pkgconf-$(PKGCONF_COMMIT_ID).zip:
 	$(CURL) -L https://codeload.github.com/pkgconf/pkgconf/zip/$(PKGCONF_COMMIT_ID) -o $@
+
+ngfx:
+	git clone git@github.com:gopro/ngfx.git
 
 .PHONY: all

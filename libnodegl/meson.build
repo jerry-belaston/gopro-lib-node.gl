@@ -457,11 +457,6 @@ if enable_ngfx_backend
     )
     ngfx_deps += ngfx_dep
 
-    shader_tools_dep = declare_dependency(
-      include_directories: [ '../shader-tools/src' ],
-      link_args: [ '-L' + meson.current_source_dir() + '\\..\\external\\windows\\shader_tools_x64-windows\\lib', '-lshader_tools' ],
-    )
-    ngfx_deps += shader_tools_dep
   elif host_system == 'linux'
     spirv_cross_link_args = [
       '-lspirv-cross-cpp', '-lspirv-cross-core', '-lspirv-cross-glsl', '-lspirv-cross-hlsl', '-lspirv-cross-msl', '-lspirv-cross-reflect', '-lspirv-cross-util', '-lspirv-cross-c'
@@ -475,11 +470,6 @@ if enable_ngfx_backend
     )
     ngfx_deps += ngfx_dep
 
-    shader_tools_dep = declare_dependency(
-      include_directories: [ '../shader-tools/src' ],
-      link_args: [ '-L' + meson.current_source_dir() + '/../external/linux/shader_tools_x64-linux/lib', '-lshader_tools' ],
-    )
-    ngfx_deps += shader_tools_dep
   elif host_system == 'darwin'
     spirv_cross_link_args = [
       '-lspirv-cross-cpp', '-lspirv-cross-core', '-lspirv-cross-glsl', '-lspirv-cross-hlsl', '-lspirv-cross-msl', '-lspirv-cross-reflect', '-lspirv-cross-util', '-lspirv-cross-c'
@@ -493,11 +483,6 @@ if enable_ngfx_backend
     )
     ngfx_deps += ngfx_dep
 
-    shader_tools_dep = declare_dependency(
-      include_directories: [ '../shader-tools/src' ],
-      link_args: [ '-L' + meson.current_source_dir() + '/../external/darwin/shader_tools_x64-darwin/lib', '-lshader_tools' ],
-    )
-    ngfx_deps += shader_tools_dep
   endif
 endif
 
@@ -511,14 +496,9 @@ cc_lib_dirs = [ get_option('prefix') / get_option('libdir') ]
 
 if cc.get_id() == 'msvc'
   external_dir = get_option('external_dir')
-  windows_sdk_dir = get_option('windows_sdk_dir')
   vulkan_sdk_dir = get_option('vulkan_sdk_dir')
 
-  windows_sdk_library_directories = [ windows_sdk_dir + '\\lib\\10.0.18362.0\\um\\x64' ]
-
   vulkan_sdk_library_directories = [ vulkan_sdk_dir + '\\Lib']
-
-  cc_lib_dirs += windows_sdk_library_directories
 
   lib_include_dirs += include_directories(vulkan_sdk_dir + '\\Include')
   cc_lib_dirs += vulkan_sdk_library_directories
