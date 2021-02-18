@@ -243,11 +243,12 @@ pynodegl-deps-install: $(PREFIX_DONE) nodegl-install
 nodegl-install: nodegl-setup
 	($(MESON_COMPILE) -C $(MESON_BUILDDIR)/libnodegl && $(MESON_INSTALL) -C $(MESON_BUILDDIR)/libnodegl)
 
+NODEGL_DEPS=sxplayer-install
 ifeq ($(ENABLE_NGFX_BACKEND), 1)
-nodegl-setup: sxplayer-install ngfx-install shader-tools-install
-else
-nodegl-setup: sxplayer-install
+NODEGL_DEPS+=ngfx-install shader-tools-install
 endif
+nodegl-setup: $(NODEGL_DEPS)
+
 	($(MESON_SETUP) --backend $(MESON_BACKEND) $(NODEGL_SETUP_OPTS) $(NODEGL_DEBUG_OPTS) --default-library shared libnodegl $(MESON_BUILDDIR)/libnodegl)
 ifeq ($(TARGET_OS),Windows)
 ifeq ($(DEBUG),yes)
