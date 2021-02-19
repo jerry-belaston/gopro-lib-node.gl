@@ -146,6 +146,8 @@ lib_src = files(
   'node_media.c',
   'node_motion.c',
   'node_noise.c',
+  'node_path.c',
+  'node_pathdraw.c',
   'node_program.c',
   'node_quad.c',
   'node_render.c',
@@ -178,6 +180,7 @@ lib_src = files(
   'program.c',
   'rendertarget.c',
   'rnode.c',
+  'root_finder.c',
   'serialize.c',
   'texture.c',
   'transforms.c',
@@ -526,6 +529,10 @@ test_progs = {
   'Noise': {
     'exe': 'test_noise',
     'src': files('test_noise.c', 'noise.c', 'log.c', 'memory.c'),
+  },
+  'Root finding': {
+    'exe': 'test_root_finder',
+    'src': files('test_root_finder.c', 'root_finder.c'),
   },
   'Utils': {
     'exe': 'test_utils',
