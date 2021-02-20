@@ -1,0 +1,60 @@
+name: 'Tests Windows MSVC'
+
+on:
+  push:
+    branches:
+      - 'master'
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  msvc:
+
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        shell: wsl-bash {0}
+
+    steps:
+      - uses: Vampire/setup-wsl@v1
+        with:
+          distribution: Ubuntu-20.04
+          wsl-shell-command: bash --noprofile --norc -x
+
+      - uses: actions/checkout@v2
+
+      - name: Restore vcpkg binary cache archives
+        id: restore_vcpkg_binary_cache
+        uses: actions/cache@v2
+        with:
+          path: C:\Users\runneradmin\AppData\Local\vcpkg\archives
+          # if you change the vcpkg install packages, please change this key using a version number
+          key: vcpkg-binary-cache-v0.0.1
+
+      - name: Install dependencies
+        run: |
+          sudo apt -y update
+          sudo apt -y install build-essential unzip wget python3-venv p7zip-full
+          pip.exe install meson
+          cd /mnt/c/vcpkg
+          ./vcpkg.exe install pthreads:x64-windows opengl-registry:x64-windows ffmpeg[ffmpeg,ffprobe]:x64-windows sdl2:x64-windows
+
+      - name: Build
+        run: |
+          cd /mnt/c
+          cp -Rf /mnt/d/a/gopro-lib-node.gl/gopro-lib-node.gl .
+          cd gopro-lib-node.gl
+          export VCVARS64='"C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat"'
+          read -r -d '' COMMANDS << EOM
+          export VCPKG_DIR='C:\vcpkg'
+          source build_scripts/windows/setenv.sh
+          bash build_scripts/windows/patch_pkg_config_files.sh
+          make
+          EOM
+          tmpfile=$(mktemp)
+          echo "$COMMANDS" > $tmpfile
+          echo "COMMANDS: $COMMANDS"
+          echo "tmpfile: $tmpfile"
+          cat $tmpfile
+          bash build_scripts/windows/start_msvc_env.sh $tmpfile
